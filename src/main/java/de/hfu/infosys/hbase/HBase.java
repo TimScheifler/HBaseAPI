@@ -27,6 +27,7 @@ public class HBase implements IHBase {
 
     private static final String POST = "post";
     private static final String COMMENT = "comment";
+    private static final String USER = "user";
     private static final String TS = "ts";
 
     private static final String REFERENCING_TO = "referencing_to";
@@ -114,7 +115,7 @@ public class HBase implements IHBase {
             byte[] row = Bytes.toBytes(user.getUserId());
             Put p = new Put(row);
             p.addColumn(USER_ID.getBytes(), Bytes.toBytes(USER_ID), Bytes.toBytes(user.getUserId()));
-            p.addColumn("user".getBytes(), Bytes.toBytes("user"), Bytes.toBytes(user.getUser()));
+            p.addColumn(USER.getBytes(), Bytes.toBytes(USER), Bytes.toBytes(user.getUser()));
             puts.add(p);
         }
         try {
@@ -218,7 +219,7 @@ public class HBase implements IHBase {
     private void initiateTablePost() throws IOException {
         HTableDescriptor desc = new HTableDescriptor(postTableName);
         //TableDescriptorBuilder desc = TableDescriptorBuilder.newBuilder(postTableName);
-
+        //desc.modifyColumnFamily(ColumnFamilyDescriptorBuilder.of(Bytes.toBytes(POST_ID)));
         //desc.modifyColumnFamily(ColumnFamilyDescriptorBuilder.of(POST_ID));
         //desc.modifyColumnFamily(ColumnFamilyDescriptorBuilder.of(POST));
         //desc.modifyColumnFamily(ColumnFamilyDescriptorBuilder.of(TS));

@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class FileProcessor {
@@ -28,7 +29,7 @@ public class FileProcessor {
         else if (fileType.equals(FileType.COMMENT))
             processComment(path);
         else
-            throw new Exception("Unknown FileType");
+            logger.log(Level.WARNING, "Unknown FileType");
     }
 
     private void processPost(final String path) throws IOException {

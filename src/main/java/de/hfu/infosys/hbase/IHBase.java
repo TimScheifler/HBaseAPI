@@ -3,7 +3,6 @@ package de.hfu.infosys.hbase;
 import de.hfu.infosys.models.Comment;
 import de.hfu.infosys.models.Post;
 import de.hfu.infosys.models.User;
-import org.apache.hadoop.hbase.TableName;
 
 import java.io.IOException;
 import java.util.List;

@@ -37,7 +37,7 @@ public class Application {
             HBaseAdmin.available(config);
             logger.log(Level.INFO, "HBase is running.");
         } catch (MasterNotRunningException e) {
-            e.getMessage();
+            logger.log(Level.SEVERE, e.getMessage());
             return;
         }
         startTimer();
