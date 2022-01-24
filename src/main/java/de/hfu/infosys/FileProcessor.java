@@ -16,8 +16,10 @@ import java.util.logging.Logger;
 public class FileProcessor {
 
     private static final Logger logger =  Logger.getLogger("FileProcessor");
-
+    private static final int MAX_COUNT = 10000;
     private final IHBase hbase;
+
+
 
     public FileProcessor(final IHBase hbase) {
         this.hbase = hbase;
@@ -38,7 +40,7 @@ public class FileProcessor {
         List<Post> posts = new ArrayList<>();
         Map<String, User> userMap = new HashMap<>();
         int count = 0;
-        final int max = 10000;
+
         String line;
         try (BufferedReader br = new BufferedReader(fileReader)) {
             while ((line = br.readLine()) != null) {
@@ -52,12 +54,12 @@ public class FileProcessor {
                 posts.add(post);
                 userMap.put(sl[2], user);
 
-                if (count > max) {
+                if (count > MAX_COUNT) {
                     count = 0;
                     hbase.writePosts(posts);
                     posts.clear();
                 }
-                if(userMap.size()>max){
+                if(userMap.size() > MAX_COUNT){
                     hbase.writeUsers(userMap);
                     userMap.clear();
                 }
@@ -68,7 +70,6 @@ public class FileProcessor {
         hbase.writeUsers(userMap);
         userMap.clear();
         fileReader.close();
-
     }
 
     private void processComment(final String path) throws IOException {
@@ -77,11 +78,9 @@ public class FileProcessor {
         List<Comment> comments = new ArrayList<>();
         Map<String, User> userMap = new HashMap<>();
         int count = 0;
-        final int max = 10000;
         String line;
         try (BufferedReader br = new BufferedReader(fileReader)) {
             while ((line = br.readLine()) != null) {
-
                 count++;
                 String[] sl = splitLine(line);
                 Comment comment;
@@ -95,12 +94,12 @@ public class FileProcessor {
                 comments.add(comment);
                 userMap.put(sl[2], user);
 
-                if (count > max) {
+                if (count > MAX_COUNT) {
                     count = 0;
                     hbase.writeComments(comments);
                     comments.clear();
                 }
-                if(userMap.size()>max){
+                if(userMap.size() > MAX_COUNT){
                     hbase.writeUsers(userMap);
                     userMap.clear();
                 }

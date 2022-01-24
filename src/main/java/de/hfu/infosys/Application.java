@@ -35,7 +35,6 @@ public class Application {
         config.addResource(new Path(path));
         try {
             HBaseAdmin.available(config);
-            logger.log(Level.INFO, "HBase is running.");
         } catch (MasterNotRunningException e) {
             logger.log(Level.SEVERE, e.getMessage());
             return;
@@ -55,10 +54,17 @@ public class Application {
 
         List<Long> arrayList = hBase.articleIDsByUserID(998);
         System.out.println("FOUND " + arrayList.size() + " articles of User " + 998+"\n");
-        for (Long l: arrayList)
+        int counter = 0;
+        for (Long l: arrayList) {
+            counter++;
             System.out.print(l + ", ");
+            if(counter%15==0)
+                System.out.println();
+        }
         printTimerInSeconds();
 
+        hBase.closeConnection();
+        System.out.println("Connection closed.");
     }
 
     private static void startTimer() {

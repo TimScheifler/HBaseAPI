@@ -4,22 +4,19 @@ import de.hfu.infosys.models.Comment;
 import de.hfu.infosys.models.Post;
 import de.hfu.infosys.models.User;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 public interface IHBase {
 
-    void writePosts(List<Post> posts) throws IOException;
+    void writePosts(List<Post> posts);
     void writeComments(List<Comment> comments);
-    void writeUsers(Map<String, User> users) throws IOException;
+    void writeUsers(Map<String, User> users);
 
     String userNameByID(long userID);
-
     Post postByID(long postID);
-
     Comment commentByID(long commentID);
+    List<Long> articleIDsByUserID(long userID);
 
-    List<Long> articleIDsByUserID(long userID) throws IOException;
-
+    void closeConnection();
 }

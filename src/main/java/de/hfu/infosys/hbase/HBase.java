@@ -5,8 +5,6 @@ import de.hfu.infosys.models.Post;
 import de.hfu.infosys.models.User;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.CompareOperator;
-import org.apache.hadoop.hbase.HColumnDescriptor;
-import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
@@ -30,6 +28,8 @@ public class HBase implements IHBase {
     private static final String USER = "user";
     private static final String TS = "ts";
 
+    private static final String ARTICLES = "articles";
+
     private static final String REFERENCING_TO = "referencing_to";
     private static final String COMMENT_REPLIED = "comment_replied";
     private static final String POST_COMMENTED = "post_commented";
@@ -44,8 +44,10 @@ public class HBase implements IHBase {
     private final Table userTable;
     private final Table commentTable;
 
+    private final Connection connection;
+
     public HBase(Configuration config) throws IOException {
-        Connection connection = createConnection(config);
+        connection = createConnection(config);
         admin = connection.getAdmin();
 
         postTable = connection.getTable(postTableName);
@@ -133,8 +135,7 @@ public class HBase implements IHBase {
         Get g = new Get(row);
         try {
             Result r = userTable.get(g);
-            byte[] value = r.getValue("user".getBytes(), "user".getBytes());
-            ret = Bytes.toString(value);
+            ret = getResultValue(r, USER, USER);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -148,10 +149,10 @@ public class HBase implements IHBase {
         Get g = new Get(row);
         try {
             Result r = postTable.get(g);
-            String postId = Bytes.toString(r.getValue(POST_ID.getBytes(), POST_ID.getBytes()));
-            String ts = Bytes.toString(r.getValue(TS.getBytes(), TS.getBytes()));
-            String post = Bytes.toString(r.getValue(POST.getBytes(), POST.getBytes()));
-            String userId = Bytes.toString(r.getValue(USER_ID.getBytes(), USER_ID.getBytes()));
+            String postId = getResultValue(r, POST_ID, POST_ID);
+            String ts = getResultValue(r, TS, TS);
+            String post = getResultValue(r, POST, POST);
+            String userId = getResultValue(r, USER_ID, USER_ID);
             p = new Post(ts, postId, userId, post);
         } catch (IOException e) {
             e.printStackTrace();
@@ -167,15 +168,15 @@ public class HBase implements IHBase {
         try {
             Result r = commentTable.get(g);
 
-            String commentId = Bytes.toString(r.getValue(COMMENT_ID.getBytes(), COMMENT_ID.getBytes()));
-            String ts = Bytes.toString(r.getValue(TS.getBytes(), TS.getBytes()));
-            String comment = Bytes.toString(r.getValue(COMMENT.getBytes(), COMMENT.getBytes()));
-            String userId = Bytes.toString(r.getValue(USER_ID.getBytes(), USER_ID.getBytes()));
+            String commentId = getResultValue(r, COMMENT_ID, COMMENT_ID);
+            String ts = getResultValue(r, TS, TS);
+            String comment = getResultValue(r, COMMENT, COMMENT);
+            String userId = getResultValue(r, USER_ID, USER_ID);
 
-            String commentReplied = Bytes.toString(r.getValue((REFERENCING_TO+":"+COMMENT_REPLIED).getBytes(),
-                    (REFERENCING_TO+":"+COMMENT_REPLIED).getBytes()));
-            String postCommented = Bytes.toString(r.getValue((REFERENCING_TO+":"+POST_COMMENTED).getBytes(),
-                    (REFERENCING_TO+":"+POST_COMMENTED).getBytes()));
+            String commentReplied = getResultValue(r, REFERENCING_TO+":"+COMMENT_REPLIED,
+                    REFERENCING_TO+":"+COMMENT_REPLIED);
+            String postCommented = getResultValue(r, REFERENCING_TO+":"+POST_COMMENTED,
+                    REFERENCING_TO+":"+POST_COMMENTED);
 
             if(commentReplied == null){
                 c = new Comment(ts, commentId, comment, userId, postCommented, "");
@@ -188,13 +189,19 @@ public class HBase implements IHBase {
         return c;
     }
 
+
     @Override
-    public List<Long> articleIDsByUserID(long userID) throws IOException {
+    public List<Long> articleIDsByUserID(long userID) {
         List<Long> articleList = new ArrayList<>();
 
         String userIdString = Long.toString(userID);
 
-        SingleColumnValueFilter filter = new SingleColumnValueFilter(Bytes.toBytes(USER_ID), Bytes.toBytes(USER_ID), CompareOperator.EQUAL, Bytes.toBytes(userIdString));
+        SingleColumnValueFilter filter = new SingleColumnValueFilter(
+                Bytes.toBytes(USER_ID),
+                Bytes.toBytes(USER_ID),
+                CompareOperator.EQUAL,
+                Bytes.toBytes(userIdString));
+
         Scan scan = new Scan();
         scan.setFilter(filter);
 
@@ -204,49 +211,59 @@ public class HBase implements IHBase {
         return articleList;
     }
 
+    @Override
+    public void closeConnection(){
+        try {
+            connection.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     private List<Long> getArticlesByScanningField(Scan scan, String fieldToScan, Table table){
         List<Long> articleList = new ArrayList<>();
 
         try (ResultScanner scanner = table.getScanner(scan)) {
             for (Result r : scanner)
-                articleList.add(Long.parseLong(Bytes.toString(r.getValue(fieldToScan.getBytes(), fieldToScan.getBytes()))));
+                articleList.add(Long.parseLong(getResultValue(r, fieldToScan, fieldToScan)));
         } catch (IOException e) {
             e.printStackTrace();
         }
         return articleList;
     }
 
+    private String getResultValue(Result r, String family, String qualifier){
+        return Bytes.toString(r.getValue(family.getBytes(), qualifier.getBytes()));
+    }
+
     private void initiateTablePost() throws IOException {
-        HTableDescriptor desc = new HTableDescriptor(postTableName);
-        //TableDescriptorBuilder desc = TableDescriptorBuilder.newBuilder(postTableName);
-        //desc.modifyColumnFamily(ColumnFamilyDescriptorBuilder.of(Bytes.toBytes(POST_ID)));
-        //desc.modifyColumnFamily(ColumnFamilyDescriptorBuilder.of(POST_ID));
-        //desc.modifyColumnFamily(ColumnFamilyDescriptorBuilder.of(POST));
-        //desc.modifyColumnFamily(ColumnFamilyDescriptorBuilder.of(TS));
-        //desc.modifyColumnFamily(ColumnFamilyDescriptorBuilder.of(USER_ID));
-        desc.addFamily(new HColumnDescriptor(POST_ID));
-        desc.addFamily(new HColumnDescriptor(POST));
-        desc.addFamily(new HColumnDescriptor(TS));
-        desc.addFamily(new HColumnDescriptor(USER_ID));
-        admin.createTable(desc);
+        TableDescriptorBuilder desc = TableDescriptorBuilder.newBuilder(postTableName);
+        desc.setColumnFamily(ColumnFamilyDescriptorBuilder.of(POST_ID));
+        desc.setColumnFamily(ColumnFamilyDescriptorBuilder.of(POST));
+        desc.setColumnFamily(ColumnFamilyDescriptorBuilder.of(TS));
+        desc.setColumnFamily(ColumnFamilyDescriptorBuilder.of(USER_ID));
+
+        admin.createTable(desc.build());
     }
 
     private void initiateTableUser() throws IOException {
-        HTableDescriptor desc = new HTableDescriptor(userTableName);
-        desc.addFamily(new HColumnDescriptor(USER_ID));
-        desc.addFamily(new HColumnDescriptor("user"));
-        desc.addFamily(new HColumnDescriptor("articles"));
-        admin.createTable(desc);
+        TableDescriptorBuilder desc = TableDescriptorBuilder.newBuilder(userTableName);
+        desc.setColumnFamily(ColumnFamilyDescriptorBuilder.of(USER_ID));
+        desc.setColumnFamily(ColumnFamilyDescriptorBuilder.of(USER));
+        desc.setColumnFamily(ColumnFamilyDescriptorBuilder.of(ARTICLES));
+
+        admin.createTable(desc.build());
     }
 
     private void initiateTableComment() throws IOException {
-        HTableDescriptor desc = new HTableDescriptor(commentTableName);
-        desc.addFamily(new HColumnDescriptor(COMMENT_ID));
-        desc.addFamily(new HColumnDescriptor(COMMENT));
-        desc.addFamily(new HColumnDescriptor(TS));
-        desc.addFamily(new HColumnDescriptor(USER_ID));
-        desc.addFamily(new HColumnDescriptor(REFERENCING_TO));
-        admin.createTable(desc);
+        TableDescriptorBuilder desc = TableDescriptorBuilder.newBuilder(commentTableName);
+        desc.setColumnFamily(ColumnFamilyDescriptorBuilder.of(COMMENT_ID));
+        desc.setColumnFamily(ColumnFamilyDescriptorBuilder.of(COMMENT));
+        desc.setColumnFamily(ColumnFamilyDescriptorBuilder.of(TS));
+        desc.setColumnFamily(ColumnFamilyDescriptorBuilder.of(USER_ID));
+        desc.setColumnFamily(ColumnFamilyDescriptorBuilder.of(REFERENCING_TO));
+
+        admin.createTable(desc.build());
     }
 
     private void deleteTable(TableName table) throws IOException {
